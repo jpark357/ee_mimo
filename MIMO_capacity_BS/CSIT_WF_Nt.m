@@ -1,19 +1,19 @@
 clc; clear; close all;
 
 % Parameters
-Na_list = 1:8;
+Nt_list = 1:8;
 SNR_dB_set = [0, 10, 20];
 SNR_lin_set = 10.^(SNR_dB_set / 10);
 num_trials = 1000;
 
-capacity_noCSIT = zeros(length(SNR_dB_set), length(Na_list));
-capacity_CSIT = zeros(length(SNR_dB_set), length(Na_list));
+capacity_noCSIT = zeros(length(SNR_dB_set), length(Nt_list));
+capacity_CSIT = zeros(length(SNR_dB_set), length(Nt_list));
 
 for s = 1:length(SNR_lin_set)
     SNR = SNR_lin_set(s);
     
-    for idx = 1:length(Na_list)
-        Na = Na_list(idx);
+    for idx = 1:length(Nt_list)
+        Na = Nt_list(idx);
         C_noCSIT_trials = zeros(num_trials, 1);
         C_CSIT_trials = zeros(num_trials, 1);
         
@@ -62,8 +62,8 @@ end
 figure; hold on;
 colors = lines(length(SNR_dB_set));
 for s = 1:length(SNR_dB_set)
-    plot(Na_list, capacity_noCSIT(s, :), '--', 'LineWidth', 1.5, 'Color', colors(s, :));
-    plot(Na_list, capacity_CSIT(s, :), '-', 'LineWidth', 1.5, 'Color', colors(s, :));
+    plot(Nt_list, capacity_noCSIT(s, :), '--', 'LineWidth', 1.5, 'Color', colors(s, :));
+    plot(Nt_list, capacity_CSIT(s, :), '-', 'LineWidth', 1.5, 'Color', colors(s, :));
 end
 xlabel('Number of Antennas N_a');
 ylabel('Capacity (bps/Hz)');
@@ -73,4 +73,4 @@ legend('No CSIT 0 dB','CSIT 0 dB','No CSIT 10 dB','CSIT 10 dB','No CSIT 20 dB','
 grid on;
 
 % Save EPS for Overleaf
-print(gcf, '5_25_ab', '-depsc2');
+%print(gcf, 'capacity_Nt', '-depsc2');

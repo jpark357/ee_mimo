@@ -1,30 +1,30 @@
 clc; clear; close all;
 
 % Parameters
-Na_list = 1:8;
+Nt_list = 1:8;
 SNR_dB_set = [0, 10, 20];
 SNR_lin_set = 10.^(SNR_dB_set / 10);
 num_trials = 1000;
 
-capacity_noCSIT = zeros(length(SNR_dB_set), length(Na_list));
-capacity_CSIT = zeros(length(SNR_dB_set), length(Na_list));
+capacity_noCSIT = zeros(length(SNR_dB_set), length(Nt_list));
+capacity_CSIT = zeros(length(SNR_dB_set), length(Nt_list));
 
 for s = 1:length(SNR_lin_set)
     SNR = SNR_lin_set(s);
     
-    for idx = 1:length(Na_list)
-        Na = Na_list(idx);
+    for idx = 1:length(Nt_list)
+        Nt = Nt_list(idx);
         C_noCSIT_trials = zeros(num_trials, 1);
         C_CSIT_trials = zeros(num_trials, 1);
         
         for k = 1:num_trials
-            H = (randn(Na, Na) + 1j*randn(Na, Na)) / sqrt(2);  % IID Rayleigh
+            H = (randn(Nt, Nt) + 1j*randn(Nt, Nt)) / sqrt(2);  % IID Rayleigh
             HH = H' * H;
             lambda = sort(real(eig(HH)), 'descend');  % descending order
             lambda_avg = mean(lambda);
 
             % (a) No CSIT
-            C_noCSIT_trials(k) = sum(log2(1 + (SNR / Na) * lambda));
+            C_noCSIT_trials(k) = sum(log2(1 + (SNR / Nt) * lambda));
 
             
             
@@ -32,8 +32,8 @@ for s = 1:length(SNR_lin_set)
             % Water-filling level: find mu such that sum(max(mu - 1/gamma_j, 0)) = Ptotal
             % Equivalent to bisection
 
-            inv_snr_lambda = (Na ./ (SNR * lambda));        
-            Ptotal = Na;
+            inv_snr_lambda = (Nt ./ (SNR * lambda));        
+            Ptotal = Nt;
             mu_low = inv_snr_lambda(1);
             mu_high = mu_low + Ptotal;
             tol = 1e-6;
@@ -49,7 +49,7 @@ for s = 1:length(SNR_lin_set)
                 end
             end
             p_opt = max((mu - inv_snr_lambda), 0);
-            C_CSIT_trials(k) = sum(log2(1 + (SNR / Na) * lambda .* p_opt));
+            C_CSIT_trials(k) = sum(log2(1 + (SNR / Nt) * lambda .* p_opt));
         end
 
         % Averages
@@ -62,8 +62,8 @@ end
 figure; hold on;
 colors = lines(length(SNR_dB_set));
 for s = 1:length(SNR_dB_set)
-    plot(Na_list, capacity_noCSIT(s, :), '--', 'LineWidth', 1.5, 'Color', colors(s, :));
-    plot(Na_list, capacity_CSIT(s, :), '-', 'LineWidth', 1.5, 'Color', colors(s, :));
+    plot(Nt_list, capacity_noCSIT(s, :), '--', 'LineWidth', 1.5, 'Color', colors(s, :));
+    plot(Nt_list, capacity_CSIT(s, :), '-', 'LineWidth', 1.5, 'Color', colors(s, :));
 end
 xlabel('Number of Antennas N_a');
 ylabel('Capacity (bps/Hz)');
@@ -73,4 +73,4 @@ legend('No CSIT 0 dB','CSIT 0 dB','No CSIT 10 dB','CSIT 10 dB','No CSIT 20 dB','
 grid on;
 
 % Save EPS for Overleaf
-print(gcf, '5_25_ab', '-depsc2');
+%print(gcf, 'capacity_Nt', '-depsc2');

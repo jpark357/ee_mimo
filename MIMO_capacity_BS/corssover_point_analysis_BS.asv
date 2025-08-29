@@ -1,0 +1,109 @@
+%% SIMO vs MIMO crossover plots (Tx power & Total consumed power)
+% Author: Jaebum Park
+% 08282025
+clear; clc; close all;
+
+%% -------------------- Parameters (edit here) --------------------
+% Noise power per Hz (normalized). If you want absolute mW, scale N0 accordingly.
+N0   = 1;              % (linear)
+eta  = 0.35;           % PA drain efficiency (0~1)
+
+% Circuit powers (mW) -- typically MIMO has larger circuit power
+pdc_s = 100;           % SIMO circuit power (mW)
+pdc_m = 120;           % MIMO circuit power (mW)
+
+% Channel ()
+Nt = 4; Nr = 2;
+for i =1:100
+H = (randn(Nr, Nt) + 1j*randn(Nr, Nt)) / sqrt(2);  % IID Rayleigh% MIMO: 2x2 를 기본적으로하고 선택적으로 1x2 SIMO (추후 Nt 4이상일때 fallback mode 지원하도록 수정)
+fro_norm = norm (H, 'fro');
+disp(fro_norm);
+h    = [0.9 0.6];                  % SIMO channel gains (length Nr)
+Gs   = sum(abs(h).^2);             % SIMO effective gain sum |h|^2
+
+% MIMO 2x2: eigenvalues of H^H H (non-negative reals)
+phi1 = 3.0;
+phi2 = 0.8;
+a    = phi1*phi2;                  % product
+b    = (phi1 + phi2)/2;            % half-sum
+
+% Spectral efficiency axis (bps/Hz)
+C = linspace(0.2, 9, 400);
+
+%% -------------------- Required Tx power P_o(C) --------------------
+% SIMO: C = log2(1 + (P_o/N0) * Gs)  -> P_o = (2^C - 1) * N0 / Gs
+Po_s = (2.^C - 1) .* (N0 ./ Gs);
+
+% 2x2 MIMO: C = log2( 1 + (phi1+phi2)/(2N0) P_o + (phi1*phi2)/(4N0^2) P_o^2 )
+% Solve quadratic for P_o (positive root):
+Po_m = (2*N0./a) .* ( sqrt( b.^2 + a.*(2.^C - 1) ) - b );
+
+% numerical guard (just in case)
+Po_m = max(Po_m, 0);
+
+%% -------------------- Total consumed power (include circuit & PA eff.) --------------------
+Fs = pdc_s + Po_s./eta;   % SIMO
+Fm = pdc_m + Po_m./eta;   % MIMO
+
+%% -------------------- Find crossover points --------------------
+% Helper to find a single crossover on a monotone grid
+find_x = @(x,y1,y2) deal( ...
+    interp1(y1-y2, x, 0, 'linear','extrap'), ...
+    interp1(x, y1, interp1(y1-y2, x, 0, 'linear','extrap')) );
+
+% (A) Tx power-only crossover (Po)
+d_tx = Po_s - Po_m;
+ixA  = find(d_tx(1:end-1).*d_tx(2:end) <= 0, 1, 'first');
+if ~isempty(ixA)
+    Cx_tx = interp1(d_tx(ixA:ixA+1), C(ixA:ixA+1), 0);      % bps/Hz
+    Px_tx = interp1(C(ixA:ixA+1), Po_s(ixA:ixA+1), Cx_tx);  % mW (Tx power)
+else
+    Cx_tx = NaN; Px_tx = NaN;
+end
+
+% (B) Total consumed power crossover (Fs vs Fm)
+d_tot = Fs - Fm;
+ixB  = find(d_tot(1:end-1).*d_tot(2:end) <= 0, 1, 'first');
+if ~isempty(ixB)
+    Cx_tot = interp1(d_tot(ixB:ixB+1), C(ixB:ixB+1), 0);        % bps/Hz
+    Px_tot = interp1(C(ixB:ixB+1), Fs(ixB:ixB+1), Cx_tot);      % mW (Total)
+else
+    Cx_tot = NaN; Px_tot = NaN;
+end
+
+%% -------------------- Plot 1: Transmission power (P_o) --------------------
+figure('Color','w'); hold on; grid on; box on;
+plot(C, Po_s, 'LineWidth', 2);
+plot(C, Po_m, 'LineWidth', 2, 'LineStyle','--');
+if ~isnan(Cx_tx)
+    plot(Cx_tx, Px_tx, 'o', 'MarkerSize', 7, 'LineWidth', 2);
+    text(Cx_tx, Px_tx, sprintf('  crossover = %.2f bps/Hz', Cx_tx), 'VerticalAlignment','bottom');
+end
+set(gca,'YScale','log');
+xlabel('Spectral efficiency (bps/Hz)');
+ylabel('Transmission power P_o (mW)');
+legend({'SIMO','MIMO 2{\times}2','crossover'}, 'Location','northwest');
+title('Crossover on transmit power (no circuit power)');
+
+%% -------------------- Plot 2: Total consumed power (P_o/\eta + p_{dc}) --------------------
+figure('Color','w'); hold on; grid on; box on;
+plot(C, Fs, 'LineWidth', 2);
+plot(C, Fm, 'LineWidth', 2, 'LineStyle','--');
+if ~isnan(Cx_tot)
+    plot(Cx_tot, Px_tot, 'o', 'MarkerSize', 7, 'LineWidth', 2);
+    text(Cx_tot, Px_tot, sprintf('  crossover = %.2f bps/Hz', Cx_tot), 'VerticalAlignment','bottom');
+end
+set(gca,'YScale','log');
+xlabel('Spectral efficiency (bps/Hz)');
+ylabel('Total consumed power (mW)');
+ylim([0 10^4]);
+legend({'SIMO total','MIMO total','crossover'}, 'Location','northwest');
+title('Crossover on total consumed power (includes circuit & PA efficiency)');
+
+%% -------------------- Console outputs --------------------
+fprintf('--- Parameters ---\n');
+fprintf('SIMO: Nr=%d, Gs=%.3f, pdc=%.1f mW\n', Nr, Gs, pdc_s);
+fprintf('MIMO: phi1=%.2f, phi2=%.2f, pdc=%.1f mW\n', phi1, phi2, pdc_m);
+fprintf('eta=%.2f, N0=%.2g\n', eta, N0);
+fprintf('\nCrossover (Tx power only): C=%.3f bps/Hz, P_o=%.3f mW\n', Cx_tx, Px_tx);
+fprintf('Crossover (Total power)  : C=%.3f bps/Hz, P=%.3f mW\n', Cx_tot, Px_tot);
